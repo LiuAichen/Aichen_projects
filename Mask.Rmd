@@ -1,0 +1,595 @@
+---
+title: "Factors Affecting Uptake of Facemasks "
+author: "Aichen Liu"
+date: "11/10/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo =FALSE, message = FALSE)
+```
+```{r}
+library(dplyr)
+library(kableExtra)
+library(tidyverse)
+library(cowplot)
+```
+
+```{r}
+#read data
+mask = read.csv("masks_data_v1.csv")
+
+```
+## Introduction
+
+Covid-19, a new infectious disease, causes respiratory afflictions that have affected people all around the world.
+Specialists suggest that wearing a mask is one of the most effective ways to prevent the spread of disease. This
+exploratory research focuses on mask-wearing in Canada. It discusses the preference of mask-wearing for
+different groups of Canadian citizens live in different regions and other precautions that people adopt, in
+addition the effect of official directives, such as government, on mask-wearing. The data we used is collected
+from an online questionnaire where thousands of people participated multiple times over 18 weeks accounting
+for 18 separate survey waves. There are 18 questionnaires each for one wave of the survey, the 18 questionnaires
+are similarly structured, but with some different questions added along the way.
+The data contains 43272 observations and 185 variables. We cannot check the sanity for each variable, however
+variables such as wave, age, gender, province, region, education levels, race, religion, employment, income,
+marital status, precautions used, political ideology, faith in government, date when took the questionnaire,
+whether infected with the disease, are paid more attention. The following figure gives the first 14 variables’
+names in the data
+```{r}
+#dim(mask)
+#head(mask)
+column_names = head(colnames(mask),14)
+column_names %>%
+  kbl() %>%
+  kable_styling()
+```
+As indicated from the table above, some of the columns’ names corresponding to the order of questions in the
+questionnaire, such as Q2 and Q4, are less informative. Therefore, it is better to change the columns’ names
+to what the question is asking for, such as instead of Q4, replace it with Gender (only important variables’
+names are changed.). Most of the column names are easy to interpret, but the explanation for some of the
+variables are listed below in the table
+```{r}
+mask_1 = mask %>% 
+  rename(
+    province = Q5,Canadian = Q2,
+    gender = Q4,
+    infected = Q11,
+    COVID_True = Q101,
+    COVID_test = Q139,
+    Region = Q78,
+    Education = Q79,
+    religion =Q80,
+    Employment = Q82,
+    Aboriginal = Q81_1,
+    British = Q81_2,
+    Chinese = Q81_3,
+    Dutch= Q81_4,
+    English = Q81_5,
+    French = Q81_6,
+    French_Canadian = Q81_7,
+    German = Q81_8,
+    Hispanic = Q81_9,
+    Indian = Q81_10,
+    Inuit = Q81_11,
+    Irish = Q81_12,
+    Italian = Q81_13,
+    Metis = Q81_14,
+    Polish = Q81_15,
+    Quebecois = Q81_16,
+    Scottish = Q81_17,
+    Ukrainian = Q81_18,
+    other_ethnic_1 = Q81_19,
+    other_ethnic_2 = Q81_20,
+    dontknow_ethic =Q81_21,
+    Marital_Status = Q84,
+    level_concern = Q7,
+    level_threat_Can = Q73,
+    work_home = Q10_1,
+    avoid_crowds = Q10_2,
+    avoid_peaktime_grocery_s = Q10_3,
+    avoid_inperson = Q10_4,
+    stockup = Q10_5,
+    social_distance = Q10_6,
+    swithto_virtual  = Q10_7,
+    online_shopping = Q10_8,
+    avoid_d_travel = Q10_9,
+    avoid_public_transit = Q10_10,
+    stay_home = Q10_11,
+    Mask = Q10_12,
+    nochange = Q10_13,
+    job_risk=Q12,
+    other_job_risk=Q13,
+    avoid_inperson_2 = Q241_1,
+    social_distance_2 = Q241_2,
+    avoid_crowds_2=Q241_3,
+    avoid_gather_2 = Q241_4,
+    avoid_d_travel_2 = Q241_5,
+    avoid_i_travel_2 = Q241_6,
+    avoid_public_transit_2 = Q241_7,
+    Mask_2 = Q241_8,
+    nochange_2 = Q241_9,
+    vaccine = Q243 )
+head(colnames(mask_1),14) %>%
+  kbl() %>%
+  kable_styling()
+
+
+table <- matrix(c("whether you or someone you know been infected",
+                  "whether you believe COVID-19 is true",
+                  "whether individual has tested for COVID-19",
+                  "levels of concern about pandemic around world",
+                  "levels of concern about pandemic in Canada",
+                  "whether you have a job that is at risk because of the coronavirus",
+                  "whether avoid grocery store during peak times",
+                  "whetehr stocke up on groceries and provisions, like hand sanitizer",
+                  "whether you switch to virtual communication",
+                  "whether you avoid domestic travel",
+                  "whether you have no change to lifestyle during pandemic",
+                  "whether you will adope ...precaution if there is a second wave of COVID-19",
+                  "identifies the first 3 digits of a respondent’s postal code",
+                  "corresponds to Q14 on political interest"),
+                ncol = 1,byrow = TRUE)
+row.names(table) <- c("infected","COVID_True","COVID_test","level_concern","level_threat_Can","job_risk","avoid_peaktime_grocery_s","stockup","swithto_virtual","avoid_d_travel","nochange","..._2","FSA","interest")
+colnames(table) <- c("Explanation of Variables")
+table<-as.table(table)
+kable(table)
+```
+
+
+## Sanity Checks and Data Cleaning for Ley Variables
+This research only concerns mask use among Canadian citizens. The column Canadian takes two values:1,0,
+each corresponds to Canadian citizen and not Canadian citizen respectively. It appears in the table below
+the sample contains only Canadian citizens
+
+
+```{r}
+mask_1 %>% select(Canadian) %>% table(useNA="always")
+```
+
+Gender of participants has three options 1, 2, and 3. I decided to replace them with male, female and other to make the column easier to work with.
+
+
+```{r}
+mask_1$gender[mask_1$gender ==1] <- "male"
+mask_1$gender[mask_1$gender ==2] <- "female"
+mask_1$gender[mask_1$gender ==3] <- "other"
+mask_1 %>% select(gender) %>% table(useNA="always")%>%
+  kbl(caption = "Sanity check for variable gender") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+Column Province takes values 1-10, each represents a province in Canada. I decided to replace number with actual names of the provinces to make the the entries more informative.
+
+```{r}
+mask_1$province[mask_1$province ==1] <- "Newfoundland and Labrador"
+mask_1$province[mask_1$province ==2] <- "Prince Edward Island"
+mask_1$province[mask_1$province ==3] <- "New Brunswick"
+mask_1$province[mask_1$province ==4] <- "Nova Scotia"
+mask_1$province[mask_1$province ==5] <- "Quebec"
+mask_1$province[mask_1$province ==6] <- "Ontario"
+mask_1$province[mask_1$province ==7] <- "Manitoba"
+mask_1$province[mask_1$province ==8] <- "Saskatchewan"
+mask_1$province[mask_1$province ==9] <- "Alberta"
+mask_1$province[mask_1$province ==10] <- "British Columbia"
+
+
+mask_1 %>% select(province) %>% table(useNA="always")%>%
+  kbl(caption = "Sanity check for variable Province") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+```
+
+Variable level_concern indicates levels of concern about pandemic around world (1 is highest, 4 is lowest)
+Variable level_threat_Can indicates the levels of concern about pandemic in Canada (1 is highest, 4 is lowest)
+
+Question 10 in questionnaire is a multiple choice question asking about what precautions people use during pandemic. When answer this question, people select all answers applied. Each option is listed as one individual column. They are:
+
+work_home : Worked from home<br />
+avoid_crowds : Avoided bars, restaurants, and other places with crowds<br />
+avoid_peaktime_grocery_s : Avoided grocery stores at peak times<br />
+avoid_inperson : Avoided in-person contact with friends, family, and acquaintances <br />
+stockup : Stocked up on groceries and provisions, like hand sanitizer<br />
+social_distance : Maintained 2 meters of distance from people as much as possible<br />
+swithto_virtual : Moved in-person appointments to virtual meetings<br />
+online_shopping : Increased my reliance on online shopping for purchases<br />
+avoid_d_travel : Avoided domestic travel <br />
+avoid_public_transit : Avoided the use of public transit <br />
+stay_home : Stayed at home as much as possible <br />
+Mask: Wore a mask<br />
+nochange : I have not made any lifestyle changes <br />
+
+In the raw data, 1 means individual use this precaution, NA means individual don't use this precaution. However variables Mask and nochange didn't appear in wave 1 and 2 survey, NA means didn't answer quesion in first two waves, but means don't use this precaution in other waves. Therefore to make the meaning of NA consistent, I decide to use 0 to represents didn't adopt precautions and NA for didn't answer the question. <br />
+<br />
+On the other hand, in the first 2 waves of survey, variable stay_home indicates no lifestyle changes but in other waves stay_home indicates stayed at home as much as possible. Thus, I decide to move the answer for stay_home in the first two waves to variable nochange.<br />
+
+```{r}
+
+mask_1$work_home[is.na(mask_1$work_home)] <- 0
+mask_1$avoid_crowds[is.na(mask_1$avoid_crowds)] <- 0
+mask_1$avoid_peaktime_grocery_s[is.na(mask_1$avoid_peaktime_grocery_s)] <- 0
+mask_1$avoid_inperson[is.na(mask_1$avoid_inperson)] <- 0
+mask_1$stockup[is.na(mask_1$stockup)] <- 0
+mask_1$social_distance[is.na(mask_1$social_distance)] <- 0
+mask_1$swithto_virtual[is.na(mask_1$swithto_virtual)] <- 0
+mask_1$online_shopping[is.na(mask_1$online_shopping)] <- 0
+mask_1$avoid_d_travel[is.na(mask_1$avoid_d_travel)] <- 0
+mask_1$avoid_public_transit[is.na(mask_1$avoid_public_transit)] <- 0
+
+mask_1$Mask[is.na(mask_1$Mask)] <- 0
+mask_1$Mask[mask_1$wave== 1] <- NA
+mask_1$Mask[mask_1$wave== 2] <- NA
+
+mask_1$nochange[is.na(mask_1$nochange)] <- 0
+mask_1$nochange[mask_1$wave== 1] <- NA
+mask_1$nochange[mask_1$wave== 2] <- NA
+
+mask_1$nochange <- ifelse(mask_1$stay_home == 1 & mask_1$wave == 1, 1, mask_1$nochange)
+mask_1$nochange <- ifelse(mask_1$stay_home == 1 & mask_1$wave == 2, 1, mask_1$nochange)
+mask_1$stay_home[is.na(mask_1$stay_home)] <- 0
+mask_1$stay_home[mask_1$wave== 2] <- NA
+mask_1$stay_home[mask_1$wave== 1] <- NA
+```
+
+Column infected asks whether you or someone you know been infected, 1 means yes and 2 means don't know. As indicated there are a lot of missing values because this question only appear in the first two waves.
+
+```{r}
+#mask_1 %>% select(infected) %>% table(useNA="always")
+mask_1 %>% 
+  group_by(wave) %>% 
+  count(infected) %>%
+  kbl(caption = "Sanity check for variable infected") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+Column job_risk asks whether you have a job that is at risk because of the coronavirus. 1 means yes, 2 means don't know, 3 means no, and 4 means already been laid off due to the virus  
+
+```{r}
+mask_1 %>% select(job_risk) %>% table(useNA="always")%>%
+  kbl(caption = "Sanity check for variable job_risk") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+COVID-True gives whether you believe COVID-19 is true, 1 means yes, 2 means No. The table shows wave 1 doesn't contain this information.
+
+```{r}
+#mask_1 %>% select(COVID_True) %>% table(useNA="always")
+mask_1 %>% 
+  group_by(wave) %>% 
+  count(COVID_True) %>%
+  kbl(caption = "Sanity check for variable COVID-True") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+COVID-test gives whether individual has tested for COVID-19, 1 means yes, 2 means no, 3 means want to but unable. Wave 1 and wave 2 don't contain this question.
+
+```{r}
+#mask_1 %>% select(COVID_test) %>% table(useNA="always")
+mask_1 %>% 
+  group_by(wave) %>% 
+  count(COVID_test)%>%
+  kbl(caption = "Sanity check for variable COVID-test") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+All columns with names in the form of "..._2" are options from Q241, which is a multiple choice question that asks the precautions that people will adopt if there is a second wave of COVID-19 in the fall or winter. 1 means individual use this precaution, NA means individual don't use this precaution. Since this question is added in wave 9, I decide to use 0 to represents didn't adopt precautions and NA for didn't answer the question similar to Q10. 
+
+```{r}
+mask_1$avoid_inperson_2[is.na(mask_1$avoid_inperson_2)] <- 0
+mask_1$avoid_inperson_2[mask_1$wave== 1|mask_1$wave==2|mask_1$wave== 3|mask_1$wave== 4|mask_1$wave== 5|mask_1$wave== 6|mask_1$wave== 7|mask_1$wave== 8] <- NA
+
+mask_1$social_distance_2[is.na(mask_1$social_distance_2)] <- 0
+mask_1$social_distance_2[mask_1$wave== 1|mask_1$wave==2|mask_1$wave== 3|mask_1$wave== 4|mask_1$wave== 5|mask_1$wave== 6|mask_1$wave== 7|mask_1$wave== 8] <- NA
+
+mask_1$avoid_crowds_2[is.na(mask_1$avoid_crowds_2)] <- 0
+mask_1$avoid_crowds_2[mask_1$wave== 1|mask_1$wave==2|mask_1$wave== 3|mask_1$wave== 4|mask_1$wave== 5|mask_1$wave== 6|mask_1$wave== 7|mask_1$wave== 8] <- NA
+
+mask_1$avoid_gather_2[is.na(mask_1$avoid_gather_2)] <- 0
+mask_1$avoid_gather_2[mask_1$wave== 1|mask_1$wave==2|mask_1$wave== 3|mask_1$wave== 4|mask_1$wave== 5|mask_1$wave== 6|mask_1$wave== 7|mask_1$wave== 8] <- NA
+
+mask_1$avoid_d_travel_2[is.na(mask_1$avoid_d_travel_2)] <- 0
+mask_1$avoid_d_travel_2[mask_1$wave== 1|mask_1$wave==2|mask_1$wave== 3|mask_1$wave== 4|mask_1$wave== 5|mask_1$wave== 6|mask_1$wave== 7|mask_1$wave== 8] <- NA
+
+mask_1$avoid_i_travel_2[is.na(mask_1$avoid_i_travel_2)] <- 0
+mask_1$avoid_i_travel_2[mask_1$wave== 1|mask_1$wave==2|mask_1$wave== 3|mask_1$wave== 4|mask_1$wave== 5|mask_1$wave== 6|mask_1$wave== 7|mask_1$wave== 8] <- NA
+
+mask_1$avoid_public_transit_2[is.na(mask_1$avoid_public_transit_2)] <- 0
+mask_1$avoid_public_transit_2[mask_1$wave== 1|mask_1$wave==2|mask_1$wave== 3|mask_1$wave== 4|mask_1$wave== 5|mask_1$wave== 6|mask_1$wave== 7|mask_1$wave== 8] <- NA
+
+mask_1$Mask_2[is.na(mask_1$Mask_2)] <- 0
+mask_1$Mask_2[mask_1$wave== 1|mask_1$wave==2|mask_1$wave== 3|mask_1$wave== 4|mask_1$wave== 5|mask_1$wave== 6|mask_1$wave== 7|mask_1$wave== 8] <- NA
+
+mask_1$nochange_2[is.na(mask_1$nochange_2)] <- 0
+mask_1$nochange_2[mask_1$wave== 1|mask_1$wave==2|mask_1$wave== 3|mask_1$wave== 4|mask_1$wave== 5|mask_1$wave== 6|mask_1$wave== 7|mask_1$wave== 8] <- NA
+
+
+
+```
+
+Column vaccine represents whether you take a vaccine to prevent COVID-19 infection once it becomes available. 1 means yes, 2 means no and 3 means unsure. This question is also first added in wave 9.(Only a portion of the table is shown)
+
+```{r}
+#mask_1 %>% select(vaccine) %>% table(useNA="always")
+head(mask_1 %>% 
+  group_by(wave) %>% 
+  count(vaccine),15)%>%
+  kbl(caption = "Sanity check for variable COVID-test") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+
+```
+
+Column interest gives a scale from 0-10 indicate the levels of political interest. Zero means no interest at all, and ten means a great deal of interest.
+
+```{r}
+mask_1 %>% select(interest) %>% table(useNA="always")%>%
+  kbl(caption = "Sanity check for variable interest") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+Column Region gives the locations of participants. 1 means large city, 2 means medium sized city, 3 means large town, 4 means small town, and 5 means rural area. I decide to replace numbers with text, because it is easy to work with.
+
+```{r}
+mask_1$Region[mask_1$Region ==1] <- "LargeC"
+mask_1$Region[mask_1$Region ==2] <- "MediumC"
+mask_1$Region[mask_1$Region ==3] <- "LargeT"
+mask_1$Region[mask_1$Region ==4] <- "SmallT"
+mask_1$Region[mask_1$Region ==5] <- "Rural"
+mask_1 %>% select(Region) %>% table(useNA="always")%>%
+  kbl(caption = "Sanity check for variable Region") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+Education gives the level of education completed, scale from 1-12.
+
+o	No schooling  (1) <br />
+o	Some elementary school  (2) <br />
+o	Completed elementary school  (3) <br />
+o	Some secondary / high school  (4) <br />
+o	Completed secondary / high school  (5) <br />
+o	Some technical, community college, CEGEP, College Classique  (6) <br />
+o	Completed technical, community college, CEGEP,College Classique  (7) <br />
+o	Some university  (8) <br />
+o	Bachelor's degree  (9) <br />
+o	Master's degree  (10) <br />
+o	Professional degree or doctorate  (11) <br />
+o	Don't know  (12) <br />
+
+```{r}
+mask_1 %>% select(Education) %>% table(useNA="always")%>%
+  kbl(caption = "Sanity check for education") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+Religion gives the levels of devotion in religion. 1 means very important, 4 means not important, 5 means prefer not to answer.
+```{r}
+mask_1 %>% select(religion) %>% table(useNA="always")%>%
+  kbl(caption = "Sanity check for variable religion") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+The data set contains 21 columns indicate the ethnic groups of participants such as Aboriginal, British, English, Chinese, etc. 1 means belong to this ethnic groups, and NA means not belong. I decide to replace NA with 0. Also, I decide to mutate a new binary variable called other_ethic to indicate whether the participant belong to other ethic groups that are not listed.
+
+```{r}
+mask_1$Aboriginal[is.na(mask_1$Aboriginal)] <- 0
+mask_1$British[is.na(mask_1$British)] <- 0
+mask_1$Chinese[is.na(mask_1$Chinese)] <- 0
+mask_1$Dutch[is.na(mask_1$Dutch)] <- 0
+mask_1$English[is.na(mask_1$English)] <- 0
+mask_1$French[is.na(mask_1$French)] <- 0
+mask_1$French_Canadian[is.na(mask_1$French_Canadian)] <- 0
+mask_1$German[is.na(mask_1$German)] <- 0
+mask_1$Hispanic[is.na(mask_1$Hispanic)] <- 0
+mask_1$Indian[is.na(mask_1$Indian)] <- 0
+mask_1$Inuit[is.na(mask_1$Inuit)] <- 0
+mask_1$Irish[is.na(mask_1$Irish)] <- 0
+mask_1$Italian[is.na(mask_1$Italian)] <- 0
+mask_1$Metis[is.na(mask_1$Metis)] <- 0
+mask_1$Polish[is.na(mask_1$Polish)] <- 0
+mask_1$Quebecois[is.na(mask_1$Quebecois)] <- 0
+mask_1$Scottish[is.na(mask_1$Scottish)] <- 0
+mask_1$Ukrainian[is.na(mask_1$Ukrainian)] <- 0
+
+
+mask_1 = mask_1 %>% 
+  mutate(other_ethic = case_when(
+    other_ethnic_1 ==1 ~ 1,
+    other_ethnic_2 ==1 ~ 1
+  ))
+mask_1$other_ethic[is.na(mask_1$other_ethic)] <- 0
+  
+```
+
+Income indicates the levels of income scale from 1 to 9, where 1 means no income, 8 means the highest income level, and 9 means prefer not to answer. I decide to replace numbers to text to represents each income levels, such as instead of 2, use 1-30000 to indicate income levels. As shown in the table below, there are some 0 which is not a valid entry, since it can't provide any information I decided to treat 0 as missing value
+```{r}
+mask_1$income[mask_1$income ==1] <- "No income"
+mask_1$income[mask_1$income ==2] <- "1-30000"
+mask_1$income[mask_1$income ==3] <- "30001-60000"
+mask_1$income[mask_1$income ==4] <- "60001-90000"
+mask_1$income[mask_1$income ==5] <- "90001-110000"
+mask_1$income[mask_1$income ==6] <- "110001-150000"
+mask_1$income[mask_1$income ==7] <- "150001-200000"
+mask_1$income[mask_1$income ==8] <- "200000+"
+mask_1$income[mask_1$income ==9] <- "Don't Know"
+mask_1 %>% select(income) %>% table(useNA="always")%>%
+  kbl(caption = "Sanity check for variable income") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+mask_1$income[mask_1$income ==0] <- NA
+```
+
+Marital_status uses number 1-7 to indicates different marital status. I decide to replace numbers to text to represents each income levels, such as instead of 1, use Married.
+```{r}
+mask_1$Marital_Status[mask_1$Marital_Status ==1] <- "Married"
+mask_1$Marital_Status[mask_1$Marital_Status ==2] <- "Living with partner"
+mask_1$Marital_Status[mask_1$Marital_Status ==3] <- "Divorced"
+mask_1$Marital_Status[mask_1$Marital_Status ==4] <- "Separated"
+mask_1$Marital_Status[mask_1$Marital_Status ==5] <- "Widowed"
+mask_1$Marital_Status[mask_1$Marital_Status ==6] <- "Never married"
+mask_1$Marital_Status[mask_1$Marital_Status ==7] <- "Don't know"
+mask_1 %>% select(Marital_Status) %>% table(useNA="always")%>%
+  kbl(caption = "Sanity check for Marital_Status") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+```
+
+At last, since in the first two waves, precaution mask is not in the options, and meanwhile we are primarily concern about wask-wearing. Therefore I decided to create a new dataset only contains observations from wave 3 to wave 18. The subsetted new data set contains 38302 observations and 185 variables.
+
+```{r}
+mask_1_no12 = filter(mask_1,wave!=1)
+mask_1_no12 = filter(mask_1_no12,wave!=2)
+```
+
+
+## Plots and Summary
+
+```{r}
+mask_1_no12$Mask <- as.factor(mask_1_no12$Mask)
+mask_1_no12$Mask_2 <- as.factor(mask_1_no12$Mask_2)
+mask_1_no12$wave <- as.factor(mask_1_no12$wave)
+mask_1_no12$province <- as.factor(mask_1_no12$province)
+mask_1_no12$infected <- as.factor(mask_1_no12$infected)
+mask_1_no12$interest <- as.factor(mask_1_no12$interest)
+mask_1_no12$level_concern <- as.factor(mask_1_no12$level_concern)
+mask_1_no12$level_threat_Can<-as.factor(mask_1_no12$level_threat_Can)
+mask_1$level_concern <- as.factor(mask_1$level_concern)
+mask_1$level_threat_Can<-as.factor(mask_1$level_threat_Can)
+
+```
+
+```{r}
+aa = mask_1_no12 %>% ggplot(aes(x=Mask)) + geom_bar(fill="steelblue")+ggtitle("Number of people who wear mask ")+ylab("number of people")
+bb=ggplot(mask_1_no12, 
+       aes(x = wave, 
+           fill = Mask)) + 
+  geom_bar(position = "Fill")+ggtitle(" Waves VS.Mask ")+ylab("percentage")
+
+
+plot_grid(aa, bb, labels = "AUTO")
+```
+Figure A gives a bar chart representing people who wears masks and people who doesn't. As indicated in the graph, number of people who wears masks are greater than those who doesn't, but the difference is not very large. Whereas figure B provides the proportion of people who wear masks for different waves. There is a clear increase in proportion of people wearing masks over time. We can see the percentage of people wearing mask is increasing over time. More and More people choose to wear masks.
+
+```{r}
+p1 = ggplot(mask_1_no12, 
+       aes(x = Mask, 
+           fill = gender)) + 
+  geom_bar(position = position_dodge(preserve = "single"))+ ylab("number of people")+ggtitle("Mask VS. Gender")
+p2 = ggplot(mask_1_no12, 
+       aes(x = gender, 
+          )) + 
+  geom_bar()+ylab("number of people")+ggtitle("Gender")
+ plot_grid(p1, p2, labels = "AUTO")
+```
+This plot gives the relationship between gender and mask-using. In plot A, if only focus on the pink bars, we know most women choose to wear masks, and for men and other gender (the green bars or blue bars), we observe the same pattern. However if we look at group 0, the pink bar is shorter than the green one, which means, there are more male than female who don't wear masks. Besides in plot B, we know that more participants are females. Therefore male are more likely to not wear masks than female.
+
+
+
+```{r}
+ ggplot(mask_1_no12, aes(fill=Mask, x=province)) + 
+    geom_bar(position="dodge")+theme(axis.text.x = element_text(colour = "grey20", size = 10, angle = 90))+ylab("number of people")+ggtitle("Mask VS. Province")
+```
+This plot provides mask-usage within each province. Number of people who wear masks is greater than the number of people who don't in province Alberta, BC, Nova Scotia, Ontario, and Quebec. People from provinces with larger sample size are more likely to wear masks. Furthermore, the proportion of wearing mask in Ontario is the highest among all.
+
+```{r}
+ ggplot(mask_1_no12, 
+       aes(x = Region, 
+           fill =Mask )) + 
+  geom_bar(position = position_dodge(preserve = "single"))+ylab("number of people")+ggtitle("Mask VS. Region")
+
+```
+To categorize sample into different regions, we can observe the pattern of mask wearing within each region. In despite of size, more people in city and town wear masks than people in rural area. Look within each region, the proportion of people wearing masks in city are higher than those in towns.
+
+```{r}
+mask_1_no12$Mask <- as.factor(mask_1_no12$Mask)
+ggplot(mask_1_no12, 
+       aes(x = Education, 
+           fill =Mask )) + 
+  geom_bar(position = position_dodge(preserve = "single"))+scale_x_continuous(breaks=c(1,2,3,4,5,6,7,8,9,10,11,12))+ylab("number of people")+ggtitle("Mask VS. Education")
+```
+To explore the education levels with mask-using, the following list gives the corresponding level.
+o	No schooling  (1) <br />
+o	Some elementary school  (2) <br />
+o	Completed elementary school  (3) <br />
+o	Some secondary / high school  (4) <br />
+o	Completed secondary / high school  (5) <br />
+o	Some technical, community college, CEGEP, College Classique  (6) <br />
+o	Completed technical, community college, CEGEP,College Classique  (7) <br />
+o	Some university  (8) <br />
+o	Bachelor's degree  (9) <br />
+o	Master's degree  (10) <br />
+o	Professional degree or doctorate  (11) <br />
+o	Don't know  (12) <br />
+
+As we can see, The number of people who don't wear masks excess the number of people who wear masks for the first four levels, but the pattern reverse from level 6 (technical, community college and equivalence) and on. Hence we know higher education level promotes mask-wearing. 
+
+
+```{r}
+mask_1_no12 = mask_1_no12 %>% mutate(precautions = case_when(
+  work_home ==1 ~ "work home",
+   avoid_crowds ==1~"avoid crowds",
+   avoid_peaktime_grocery_s==1~"avoid grocery",
+   avoid_inperson==1~"avoid inperson",
+   stockup==1~"stock up",
+   social_distance==1~"social distance",
+   swithto_virtual==1~"switch to virtual",
+   online_shopping==1~"online shopping",
+   avoid_d_travel==1~"avoid_d_travel",
+   avoid_public_transit ==1~"avoid public transit",
+   Mask==1~"mask",
+   nochange==1~"no change",
+   stay_home ==1~"stay home"
+    ))
+ggplot(mask_1_no12, 
+       aes(x = Mask))+geom_bar(fill="steelblue")+facet_wrap( ~ precautions, ncol=4,scales="free_y")+ylab("number of people")+ggtitle("Mask Wearing by Other Precautions")
+
+
+ggplot(mask_1_no12, 
+       aes(x = precautions))+geom_bar(fill="steelblue")+facet_wrap( ~ Mask, ncol=4,scales="free_y")+ylab("number of people")+ggtitle("Mask Wearing by Other Precautions")+theme(axis.text.x = element_text(colour = "grey20", size = 9, angle = 90))
+```
+The faceted plot categorizes people into subgroups by their precautions used. By comparing the plot, more people who avoid crowds, adopt social distancing or work from home wear masks than people using other precautions. Also, regardless of wearing mask, most people choose to avoid crowds and work from home.
+
+```{r}
+jj =ggplot(mask_1_no12, 
+       aes(x = religion, 
+           fill =Mask )) + 
+  geom_bar(position = position_dodge(preserve = "single"))+ggtitle("Mask VS.Religion")
+
+gg=ggplot(mask_1_no12, 
+       aes(x = income, 
+           fill =Mask )) + 
+  geom_bar(position = position_dodge(preserve = "single"))+theme(axis.text.x = element_text(colour = "grey20", size = 9, angle = 90))+ggtitle("Mask VS. Income")
+
+
+hh =ggplot(mask_1_no12, 
+       aes(x = Marital_Status, 
+           fill =Mask )) + 
+  geom_bar(position = position_dodge(preserve = "single"))+theme(axis.text.x = element_text(colour = "grey20", size = 9, angle = 90))+ggtitle("Mask VS. Maretal Status")
+plot_grid(hh, gg,jj, labels = "AUTO")
+```
+Plot A provides us the relation between marital status and mask-using. As indicated, the number of people who wear masks is greater than those who don't wear mask for all groups, except group Seperated and group Don't know.
+In the income graph, except the group of people who has no income, all the other groups have greater number of people who wear masks than those who don't wear mask. In plot C, except the group of people who prefer not to answer their devotion to religion(group 5), all the other groups have greater number of people who wear masks than those who don't wear mask.
+
+## Concluison and Next Step
+To sum up, after doing a brief exploratory data analysis, we now have a comprehensive understanding of the
+structure and the background of the data used and the correlation between variables. So far, we can make
+some tentative conclusions about the research questions base on the visualization. There are some major
+factors that determine whether an individual wear masks, such as gender, regions and location of an individual, and
+one’s education level, etc.
+In general, there are more people who wear a mask than those who don’t. To further divide them by gender,
+according to Mask VS.gender plot, more women wear masks than men do. Furthermore, if we consider
+province and region, we learn that urban areas (cities) have an overall higher proportion of mask-wearing,
+especially for Ontario; Ontario has the highest proportion of people wearing masks among all other provinces.
+Since Ontario has the highest population density, I hypothesize that people from large cities with high
+population density are more likely to wear a mask since they have a stronger awareness of the severity of the pandemic
+than those who live in a rural area. Despite that, one’s education level is also a significant indicator; In the
+plot Mask vs.Education, a large number of people with higher education wear masks. I hypothesize that people
+with higher education might understand more about the spread of the virus which would make them adopt more
+precautions. Just as the plot indicates, people who possess a Bachelor’s degree have the highest proportion of
+16
+people wearing masks. Besides wearing masks, precautions such as avoid crowds and work from home are
+adopted by most people regardless of whether wearing masks. In fact, by looking at the plot Mask Wearing
+by Other Precautions, people who wear masks take fewer precautions than people don’t wear masks.
+Base on the tentative conclusions, what we can do next is to fit a statistical model. So far since the primary
+concern is mask-wearing, I consider the variable Mask to be the dependent variable. Variable mask is a
+binary variable, thus an appropriate model would be logistic regression. Furthermore, since the data is not
+independent(individual takes surveys on different waves) a logistic regression with the random effect would be
+better. After fitting models, we can conduct a hypothesis test to test the significance of variables and draw
+more accurate conclusions.
